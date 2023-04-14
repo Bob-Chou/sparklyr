@@ -559,3 +559,7 @@ infer_required_r_packages <- function(fn) {
 os_is_windows <- function() {
   .Platform$OS.type == "windows"
 }
+
+debug_local <- function(line, file = "~/sparklyr.log", timef = "%b %d %X %Y") {
+    write(sprintf("[sparklyr][%s] %s", format(Sys.time(), timef), line), file = file, append = TRUE)
+}

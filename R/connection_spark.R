@@ -139,6 +139,8 @@ spark_connect <- function(master,
   # validate method
   method <- match.arg(method)
 
+  debug_local("Start connection to spark...")
+
   # A Databricks GUID indicates that it is running on a Databricks cluster,
   # so if there is no GUID, then method = "databricks" must refer to Databricks Connect
   if (method == "databricks" && no_databricks_guid()) {
@@ -219,6 +221,8 @@ spark_connect <- function(master,
     method <- "gateway"
   }
 
+  debug_local(sprintf("Connect using method: %s", method))
+
   # spark-shell (local install of spark)
   if (method == "shell" || method == "qubole" || method == "databricks-connect") {
     scon <- shell_connection(
@@ -278,12 +282,16 @@ spark_connect <- function(master,
     stop("Unsupported connection method '", method, "'")
   }
 
+  debug_local(sprintf("Connection established class %s", paste(class(scon), collapse = ", ")))
+
   scon$state$hive_support_enabled <- spark_config_value(
     config,
     name = "sparklyr.connect.enablehivesupport",
     default = TRUE
   )
   scon <- initialize_connection(scon)
+
+  debug_local("Initialization completed")
 
   # initialize extensions
   if (length(scon$extensions) > 0) {
@@ -294,12 +302,14 @@ spark_connect <- function(master,
 
   # register mapping tables for spark.ml
   register_mapping_tables()
+  debug_local("Register mapping done")
 
   # custom initializers for connection methods
   scon <- initialize_method(structure(scon, class = method), scon)
 
   # cache spark web
   scon$state$spark_web <- tryCatch(spark_web(scon), error = function(e) NULL)
+  debug_local("Spark web configured")
 
   # notify connection viewer of connection
   libs <- c("sparklyr", extensions)
@@ -321,6 +331,7 @@ spark_connect <- function(master,
   # let viewer know that we've opened a connection; guess that the result will
   # be assigned into the global environment
   on_connection_opened(scon, globalenv(), connectCall)
+  debug_local("Viewer notified")
 
   # Register a finalizer to sleep on R exit to support older versions of the RStudio IDE
   reg.finalizer(asNamespace("sparklyr"), function(x) {
@@ -335,6 +346,8 @@ spark_connect <- function(master,
 
   # add to our internal list
   spark_connections_add(scon)
+
+  debug_local("Connection done")
 
   # return scon
   scon
