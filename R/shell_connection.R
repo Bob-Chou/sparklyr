@@ -620,6 +620,7 @@ shell_connection_config_defaults <- function() {
 
 #' @export
 initialize_connection.spark_shell_connection <- function(sc) {
+  debug_local("[initialize_connection] Start intialization!")
   create_spark_config <- function() {
     # create the spark config
     settings <- list(list("setAppName", sc$app_name))
@@ -650,7 +651,10 @@ initialize_connection.spark_shell_connection <- function(sc) {
   # initialize and return the connection
   withCallingHandlers(
     {
+      debug_local("[initialize_connection] Invoking sparklyr.Shell.getBackend")
       backend <- invoke_static(sc, "sparklyr.Shell", "getBackend")
+
+      debug_local("[initialize_connection] Invoking sparklyr.Backend.getSparkContext")
       sc$state$spark_context <- invoke(backend, "getSparkContext")
 
       # create the spark config
@@ -658,6 +662,7 @@ initialize_connection.spark_shell_connection <- function(sc) {
 
       init_hive_ctx_for_spark_2_plus <- function() {
         # For Spark 2.0+, we create a `SparkSession`.
+        debug_local("[initialize_connection][init_hive_ctx] Getting SparkSession.builder")
         session_builder <- invoke_static(
           sc,
           "org.apache.spark.sql.SparkSession",
@@ -666,10 +671,12 @@ initialize_connection.spark_shell_connection <- function(sc) {
           invoke("config", conf) %>%
           apply_config(connection_config(sc, "spark.sql."), "config", "spark.sql.")
 
+        debug_local("[initialize_connection][init_hive_ctx] Configuring SparkSession.builder.enableHiveSupport")
         if (identical(sc$state$hive_support_enabled, TRUE)) {
           invoke(session_builder, "enableHiveSupport")
         }
 
+        debug_local("[initialize_connection][init_hive_ctx] Creating SparkSession")
         session <- session_builder %>% invoke("getOrCreate")
 
         # Cache the session as the "hive context".
@@ -677,16 +684,20 @@ initialize_connection.spark_shell_connection <- function(sc) {
 
         # Set the `SparkContext`.
         sc$state$spark_context <- sc$state$spark_context %||% invoke(session, "sparkContext")
+        debug_local("[initialize_connection][init_hive_ctx] Hive context initialization complete")
       }
 
       if (is.null(spark_context(sc))) {
+        debug_local("[initialize_connection] Initializing sparkContext")
         # create the spark context and assign the connection to it
         # use spark home version since spark context is not yet initialized in shell connection
         # but spark_home might not be initialized in submit_batch while spark context is available
         if ((!identical(sc$home_version, NULL) && sc$home_version >= "2.0") ||
           (!identical(spark_context(sc), NULL) && spark_version(sc) >= "2.0")) {
+          debug_local("[initialize_connection] Initializing hive context for 2.0+")
           init_hive_ctx_for_spark_2_plus()
         } else {
+          debug_local("[initialize_connection] Invoking SparkContext.getOrCreate")
           sc$state$spark_context <- invoke_static(
             sc,
             "org.apache.spark.SparkContext",
@@ -705,17 +716,20 @@ initialize_connection.spark_shell_connection <- function(sc) {
             }
           )
           if (!identical(actual_spark_version, NULL) && actual_spark_version >= "2.0") {
+            debug_local("[initialize_connection] Acutal version >= 2.0, initializing hive context for 2.0+")
             init_hive_ctx_for_spark_2_plus()
           }
         }
 
         invoke(backend, "setSparkContext", spark_context(sc))
       } else if (is.null(sc$state$hive_context) && spark_version(sc) >= "2.0") {
+        debug_local("[initialize_connection] Found non-null sparkContext, initializing hive context for 2.0+")
         init_hive_ctx_for_spark_2_plus()
       }
 
       # If Spark version is 2.0.0 or above, hive_context should be initialized by now.
       # So if that's not the case, then attempt to initialize it assuming Spark version is below 2.0.0
+      debug_local("[initialize_connection] Configuring hive context")
       sc$state$hive_context <- sc$state$hive_context %||% tryCatch(
         invoke_new(
           sc,
@@ -756,6 +770,7 @@ initialize_connection.spark_shell_connection <- function(sc) {
       )
 
       # create the java spark context and assign the connection to it
+      debug_local("[initialize_connection] Creating JavaSparkContext")
       sc$state$java_context <- invoke_static(
         sc,
         "org.apache.spark.api.java.JavaSparkContext",
