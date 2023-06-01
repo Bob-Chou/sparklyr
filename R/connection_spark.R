@@ -273,7 +273,13 @@ spark_connect <- function(master,
       extensions
     )
   } else if (method == "synapse") {
-    scon <- synapse_connection(config = config, extensions)
+    scon <- synapse_connection(
+      spark_home = spark_home,
+      spark_version = version,
+      scala_version = scala_version,
+      config = config,
+      extensions = extensions
+    )
   } else {
     # other methods
 

@@ -1,51 +1,81 @@
-synapse_connection <- function(config, extensions) {
-    message("
-   _____
-  / ___/__  ______  ____ _____  ________
-  \\__ \\/ / / / __ \\/ __ `/ __ \\/ ___/ _ \\
- ___/ / /_/ / / / / /_/ / /_/ (__  )  __/
-/____/\\__, /_/ /_/\\__,_/ .___/____/\\___/
-     /____/           /_/
-    ")
-    gatewayPort <- as.integer(spark_config_value(config, "sparklyr.gateway.gatewayPort", "8880"))
-    sessionId <- as.integer(spark_session_random())
-    jarPath <- file.path(system.file("java", package = "sparklyr"), "sparklyr-master-2.12.jar")
-    message(sprintf("[Synapse] Start sparklyr.Backend gatewayPort=%d sessionId=%d", gatewayPort, sessionId))
-    tryCatch(
-        {
-            callSparkRStatic <- get("callJStatic", envir = asNamespace("SparkR"))
-            callSparkRMethod <- get("callJMethod", envir = asNamespace("SparkR"))
-            # Start `sparklyr` backend daemon
-            callSparkRStatic(
-                "org.apache.spark.sparklyr.SparklyrDriver",
-                "start",
-                jarPath,
-                gatewayPort,
-                sessionId
-            )
-        },
-        error = function(err) {
-            stop("Failed to start sparklyr backend: ", err$message)
-        }
-    )
-    message("[Synapse] Successfully launched sparkr.Backend")
+synapse_connection <- function(spark_home,
+                               spark_version,
+                               scala_version,
+                               config,
+                               extensions) {
+  sc <- list()
+  spark_version <- spark_version_from_home(spark_home, default = spark_version)
+  jar_path <- spark_default_app_jar(spark_version, scala_version = scala_version)
+  verbose <- spark_config_value(config, "sparklyr.verbose", FALSE)
+  tryCatch(
+    {
+      call_sparkr_static <- get("callJStatic", envir = asNamespace("SparkR"))
+      call_sparkr_method <- get("callJMethod", envir = asNamespace("SparkR"))
 
-    sc <- new_spark_gateway_connection(
+      if (verbose) {
+        message("[Synapse] Start sparklyr.Backend")
+      }
+
+      sparklyr_gateway <- call_sparkr_static(
+        "org.apache.spark.sparklyr.SparklyrGateway",
+        "getOrCreate"
+      )
+
+      if (verbose) {
+        message(sprintf("[Synapse] Add sparklyr jar: %s", jar_path))
+      }
+
+      call_sparkr_method(
+        sparklyr_gateway,
+        "addJar",
+        jar_path
+      )
+
+      if (verbose) {
+        message("[Synapse] Start sparklyr backend")
+      }
+
+      call_sparkr_method(
+        sparklyr_gateway,
+        "start"
+      )
+
+      gatewayUri <- call_sparkr_method(
+        sparklyr_gateway,
+        "getUri"
+      )
+
+      if (verbose) {
+        message(sprintf("[Synapse] Connect to sparklyr gateway: %s", gatewayUri))
+      }
+
+      sc <- new_spark_gateway_connection(
         gateway_connection(
-            paste("sparklyr://localhost:", gatewayPort, "/", sessionId, sep = ""),
-            config = config
+          gatewayUri,
+          config = config
         ),
         class = "synapse_connection"
-    )
-    message("[Synapse] Successfully connected to gateway")
+      )
 
-    sc$stat$hive_context <- invoke(
+      if (verbose) {
+        message("[Synapse] Connect to existing spark session")
+      }
+
+      sc$stat$hive_context <- invoke(
         invoke_static(sc, "org.apache.spark.sql.SparkSession", "builder"),
         "getOrCreate"
-    )
-    message("[Synapse] Sucessfully connect to default SparkSession")
+      )
 
-    sc
+      if (verbose) {
+        message("[Synapse] Sucessfully connect to spark")
+      }
+    },
+    error = function(err) {
+      stop("[Synapse] Failed to start sparklyr backend: ", err$message)
+    }
+  )
+
+  sc
 }
 
 #' @export
