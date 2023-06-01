@@ -20,6 +20,7 @@ databricks_expand_jars <- function() {
 }
 
 databricks_connection <- function(config, extensions) {
+  message("[Databricks] Using Databricks connection")
   tryCatch(
     {
       databricks_expand_jars()
