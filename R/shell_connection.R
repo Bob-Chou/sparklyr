@@ -524,6 +524,7 @@ stop_shell <- function(sc, terminate = FALSE) {
   # use monitoring connection to terminate
   sc$state$use_monitoring <- TRUE
 
+  message("[Databricks] [Spark Shell] Invoking handlers")
   invoke_method(
     sc,
     FALSE,
@@ -531,8 +532,11 @@ stop_shell <- function(sc, terminate = FALSE) {
     terminationMode
   )
 
+  message("[Databricks] [Spark Shell] Clossing backend")
   close(sc$backend)
+  message("[Databricks] [Spark Shell] Clossing gateway")
   close(sc$gateway)
+  message("[Databricks] [Spark Shell] Clossing monitor")
   close(sc$monitoring)
 }
 
