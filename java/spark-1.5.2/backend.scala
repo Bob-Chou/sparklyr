@@ -120,6 +120,7 @@ class Backend() {
     isRemote = isRemoteParam
     isWorker = isWorkerParam
     isBatch = isBatchParam
+    logger.log("[Databricks] [Backend] Set params isService={} isRemote={} isWorker={} isBatch={}".format(isService, isRemote, isWorker, isBatch))
   }
 
   def setPreCommandHooks(preCommandHooksParam: List[Runnable]): Unit = {
@@ -287,9 +288,14 @@ class Backend() {
       }
 
       initMonitor()
+      var boundCount = 0
       while (isRunning.get) {
+        boundCount += 1
+        logger.log("[Databricks] [Backend] Start a new bind #{}".format(boundCount))
         bind()
+        logger.log("[Databricks] [Backend] End handling #{}".format(boundCount))
       }
+      logger.log("[Databricks] [Backend] Stop binding, exiting.")
     } catch {
       case e: java.net.SocketException =>
         logger.log("is shutting down with expected SocketException", e)
