@@ -7,6 +7,7 @@ synapse_connection <- function(spark_home,
   spark_version <- spark_version_from_home(spark_home, default = spark_version)
   jar_path <- spark_default_app_jar(spark_version, scala_version = scala_version)
   verbose <- spark_config_value(config, "sparklyr.verbose", FALSE)
+  gateway_class <- spark_config_value(config, "sparklyr.gateway.class", "org.apache.spark.sparklyr.SparklyrGateway")
   tryCatch(
     {
       call_sparkr_static <- get("callJStatic", envir = asNamespace("SparkR"))
@@ -17,7 +18,7 @@ synapse_connection <- function(spark_home,
       }
 
       sparklyr_gateway <- call_sparkr_static(
-        "org.apache.spark.sparklyr.SparklyrGateway",
+        gateway_class,
         "getOrCreate"
       )
 
@@ -46,12 +47,12 @@ synapse_connection <- function(spark_home,
       )
 
       if (verbose) {
-        message(sprintf("[Synapse] Connect to sparklyr gateway: %s", gatewayUri))
+        message(sprintf("[Synapse] Connect to sparklyr gateway: %s", gateway_uri))
       }
 
       sc <- new_spark_gateway_connection(
         gateway_connection(
-          gatewayUri,
+          gateway_uri,
           config = config
         ),
         class = "synapse_connection"
