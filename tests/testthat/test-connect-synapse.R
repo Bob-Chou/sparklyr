@@ -1,7 +1,8 @@
+message("testing synapse connection")
+
 skip_on_livy()
 skip_on_arrow_devel()
 skip_unless_synapse_connect()
-
 
 test_that("spark connection method for Synapse should be configured", {
   sc <- testthat_spark_connection()
