@@ -1255,7 +1255,7 @@ spark_worker_context <- function(sc) {
 
 spark_worker_init_packages <- function(sc, context) {
   bundlePath <- worker_invoke(context, "getBundlePath")
-
+  worker_log("[sparklyr] Init worker packages")
   if (nchar(bundlePath) > 0) {
     bundleName <- basename(bundlePath)
     worker_log("using bundle name ", bundleName)
@@ -1281,9 +1281,18 @@ spark_worker_init_packages <- function(sc, context) {
   else {
     spark_env <- worker_invoke_static(sc, "org.apache.spark.SparkEnv", "get")
     spark_libpaths <- worker_invoke(worker_invoke(spark_env, "conf"), "get", "spark.r.libpaths", NULL)
+    worker_log("[sparklyr] using spark.r.libpaths to override .libPaths")
+    if (is.null(spark_libpaths)) {
+      worker_log("[sparklyr] spark.r.libpaths unconfigured")
+    } else {
+      worker_log(sprintf("[sparklyr] read %s", spark_libpaths))
+    }
+
     if (!is.null(spark_libpaths)) {
       spark_libpaths <- unlist(strsplit(spark_libpaths, split = ","))
+      worker_log(sprintf("[sparklyr] setting .libPaths %s", paste(spark_libpaths, collapse = ",")))
       .libPaths(spark_libpaths)
+      worker_log(sprintf("[sparklyr] .libPath is set to %s", paste(.libPaths(), collapse = ",")))
     }
   }
 }

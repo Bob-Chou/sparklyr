@@ -371,13 +371,8 @@ spark_disconnect.spark_connection <- function(sc, ...) {
     }
   )
 
-  message("[Databricks] [Spark Connection] Removing spark connections from map")
   spark_connections_remove(sc)
-
-  message("[Databricks] [Spark Connection] Running disconnection handlers")
   on_connection_closed(sc)
-
-  message("[Databricks] [Spark Connection] Unregistering all stream")
   stream_unregister_all(sc)
 
   # support custom operations after spark-submit useful to do custom cleanup in k8s
